@@ -6,7 +6,7 @@
  # received with this code.
  #
 
- from confluent_kafka import Producer
+from confluent_kafka import Producer
 import os
 from dunedaq.ersschema import IssueChain # Assuming the correct import path
 

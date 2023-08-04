@@ -1,40 +1,34 @@
-from confluent_kafka import Producer
-import json
+#
+ # @file ERSPublisher.py ERSPublusher Class Implementation
+ #  
+ # This is part of the DUNE DAQ Software Suite, copyright 2023.
+ # Licensing/copyright details are in the COPYING file that you should have
+ # received with this code.
+ #
+
+ from confluent_kafka import Producer
 import os
-# this is a first attempt to convert the ERSPublisher.cpp into Python
+from dunedaq.ersschema import IssueChain # Assuming the correct import path
+
 class ERSPublisher:
-
     def __init__(self, conf):
+        k_conf = {
+            'bootstrap.servers': conf.get('bootstrap'),
+            'client.id': conf.get('cliend_id', os.getenv('DUNEDAQ_APPLICATION_NAME', 'erskafkaproducerdefault'))
+        }
 
-        self.default_topic = 'ers_stream'
+        if k_conf['bootstrap.servers'] is None:
+            raise RuntimeError('Missing bootstrap from json file')
 
-        if 'bootstrap' in conf:
-            bootstrap = conf['bootstrap']
-        else:
-            raise ValueError("Missing bootstrap from json file")
+        self.producer = Producer(k_conf)
+        self.default_topic = conf.get('default_topic', 'ers_stream')
 
-        if 'client_id' in conf:
-            client_id = conf['client_id']
-        elif 'DUNEDAQ_APPLICATION_NAME' in os.environ:
-            client_id = os.environ['DUNEDAQ_APPLICATION_NAME']
-        else:
-            client_id = 'erskafkaproducerdefault'
+    def publish(self, issue: IssueChain):
+        binary = issue.SerializeToString()
 
-        self.producer = Producer({'bootstrap.servers': bootstrap, 'client.id': client_id})
-
-        if 'default_topic' in conf:
-            self.default_topic = conf['default_topic']
-
-
-    def publish(self, issue):
-
-        binary = issue.SerializeToString()  # Assuming issue is an instance of a protobuf Message
-
-        # get the topic
-        topic = self.get_topic(issue)  
-
-        # get the key
-        key = self.get_key(issue)  
+        # Get the topic and key
+        topic = self.topic(issue)
+        key = self.key(issue)
 
         err = self.producer.produce(topic, binary, key)
 
@@ -43,13 +37,10 @@ class ERSPublisher:
 
         return True
 
-    def get_topic(self, issue):
-        # I need to replace this with actual logic to get topic from issue
-        # For now, I use default_topic as per the C++ code
+    def topic(self, issue: IssueChain):
         return self.default_topic
 
-    def get_key(self, issue):
-        # I need to replace this with actual logic to get key from issue
-        # For now, I assume issue has a session() method
-        return issue.session()
+    def key(self, issue: IssueChain):
+        return issue.session # Accessing the session field directly
+
 
